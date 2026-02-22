@@ -7,7 +7,7 @@ import re
 from PIL import Image
 
 TRIGGHT_KEYWORD = "rua"
-HELP_MESSAGE = "rua [QQ号/@用户] [背景颜色(可选)] —> 生成摸摸头GIF，默认背景为透明"
+HELP_MESSAGE = "rua [QQ号/@用户] [背景颜色(可选)] —> 生成摸摸头GIF，默认背景为白色"  # 修改帮助信息
 
 async def on_message(event, actions, Manager, Segments, order, reminder, bot_name):
     # 检查是否包含触发关键词
@@ -61,7 +61,7 @@ async def on_message(event, actions, Manager, Segments, order, reminder, bot_nam
         return True
     
     # 获取背景颜色（可选）
-    bg_color = "transparent"  # 默认透明背景
+    bg_color = "white"  # 修改这里：默认背景改为白色
     if len(parts) >= 3:
         # 跳过@的用户参数，取下一个参数作为背景颜色
         bg_color = parts[2]
