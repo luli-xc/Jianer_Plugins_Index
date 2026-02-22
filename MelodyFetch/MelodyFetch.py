@@ -3,10 +3,48 @@ import aiohttp
 import asyncio
 import os
 import re
+import gc
+import time
 from urllib.parse import quote
+from Hyper import Configurator
+Configurator.cm = Configurator.ConfigManager(Configurator.Config(file="config.json").load_from_file())
 
 TRIGGHT_KEYWORD = "点歌"
-HELP_MESSAGE = f"/点歌 [歌名] —> 搜索网易云音乐歌曲\n/点歌 [ID] —> 根据ID获取歌曲"
+HELP_MESSAGE = f"{Configurator.cm.get_cfg().others['reminder']}点歌 [歌名] —> 搜索网易云音乐歌曲\n{Configurator.cm.get_cfg().others['reminder']}点歌 [ID] —> 根据ID获取歌曲"
+
+async def robust_file_delete(file_path, max_retries=3, base_delay=1):
+    """Robust文件删除函数，多层删除策略"""
+    if not os.path.exists(file_path):
+        return True, "文件不存在"
+    
+    for attempt in range(max_retries):
+        try:
+            # 尝试删除文件
+            os.remove(file_path)
+            print(f"文件删除成功 (尝试 {attempt + 1}): {file_path}")
+            return True, f"第{attempt + 1}次删除成功"
+            
+        except Exception as e:
+            print(f"第{attempt + 1}次删除失败: {e}")
+            
+            if attempt < max_retries - 1:
+                # 计算延迟时间（指数退避）
+                delay = base_delay * (2 ** attempt) + (0.5 if attempt > 0 else 0)
+                print(f"等待 {delay} 秒后重试删除...")
+                
+                # 强制垃圾回收（最后一次尝试前）
+                if attempt == max_retries - 2:
+                    gc.collect()
+                    print("强制垃圾回收完成")
+                
+                await asyncio.sleep(delay)
+            else:
+                # 最后一次尝试失败
+                error_msg = f"文件删除最终失败: {file_path}, 错误: {e}"
+                print(error_msg)
+                return False, error_msg
+    
+    return False, "删除尝试次数耗尽"
 
 async def on_message(event, actions, Manager, Segments, reminder):
     try:
@@ -141,23 +179,22 @@ async def get_song_by_id(song_id, event, actions, Manager, Segments):
                             if size_mb > 0:
                                 song_info += f"\n📦 大小: {size_str}"
                             
-                            # 发送封面图片
+                            # 发送封面图片和歌曲信息
                             if song_data.get('cover'):
                                 try:
                                     await actions.send(
                                         group_id=event.group_id,
-                                        message=Manager.Message(Segments.Image(song_data['cover']))
+                                        message=Manager.Message(Segments.Image(song_data['cover']), 
+                                                                Segments.Text(f"找到啦！这是宝宝要听的歌哦～(ノ◕ヮ◕)ノ*:･ﾟ✧\n\n{song_info}"))
                                     )
                                     await asyncio.sleep(0.5)  # 稍微延迟一下
                                 except:
                                     print("发送封面图片失败")
-                            
-                            # 发送歌曲信息
-                            await actions.send(
-                                group_id=event.group_id,
-                                message=Manager.Message(Segments.Text(f"找到啦！这是宝宝要听的歌哦～(ノ◕ヮ◕)ノ*:･ﾟ✧\n\n{song_info}"))
-                            )
-                            
+                                    await actions.send(
+                                        group_id=event.group_id,
+                                        message=Manager.Message(Segments.Text(f"找到啦！这是宝宝要听的歌哦～(ノ◕ヮ◕)ノ*:･ﾟ✧\n\n{song_info}"))
+                                    )
+                                    
                             # 检查文件大小，超过70MB不发送音乐文件
                             if size_mb > 70:
                                 await actions.send(
@@ -208,7 +245,7 @@ async def download_and_send_music(url, event, actions, Manager, Segments):
             os.makedirs(temp_dir)
         
         # 生成临时文件名
-        temp_file = os.path.join(temp_dir, f"music_{event.message_id}.mp3")
+        temp_file = os.path.join(temp_dir, f"music_{event.message_id}.wav")
         
         # 先发送一个等待消息
         await actions.send(
@@ -256,13 +293,17 @@ async def download_and_send_music(url, event, actions, Manager, Segments):
                     )
                     await actions.send(
                         group_id=event.group_id,
-                        message=Manager.Message(Segments.Record(temp_file))
+                        message=Manager.Message(Segments.Record(os.path.abspath(temp_file)))
                     )
                     
-                    # 删除临时文件（延迟删除确保发送完成）
-                    await asyncio.sleep(2)
-                    if os.path.exists(temp_file):
-                        os.remove(temp_file)
+                    # 删除临时文件（使用robust删除策略）
+                    await asyncio.sleep(3)  # 增加延迟时间确保发送完成
+                    
+                    # 使用robust文件删除函数
+                    success, msg = await robust_file_delete(temp_file, max_retries=4, base_delay=1.5)
+                    if not success:
+                        print(f"警告: {msg}")
+                        # 即使删除失败也不影响用户体验，只记录日志
                 else:
                     await actions.send(
                         group_id=event.group_id,
@@ -281,10 +322,9 @@ async def download_and_send_music(url, event, actions, Manager, Segments):
             message=Manager.Message(Segments.Text("下载出了点问题呢(>_<) 简儿马上检查一下，宝宝稍等哦～"))
         )
         
-        # 清理临时文件
-        temp_file = os.path.join("temp_music", f"music_{event.message_id}.mp3")
-        if os.path.exists(temp_file):
-            try:
-                os.remove(temp_file)
-            except:
-                pass
+        # 清理临时文件（使用robust删除机制）
+        temp_file = os.path.join("temp_music", f"music_{event.message_id}.wav")
+        success, msg = await robust_file_delete(temp_file, max_retries=2, base_delay=0.5)
+        if not success:
+            print(f"异常处理中删除失败: {msg}")
+        # 即使删除失败也不影响主流程，继续执行
