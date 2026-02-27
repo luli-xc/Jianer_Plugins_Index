@@ -2,8 +2,8 @@ import asyncio
 import re
 from Hyper import Configurator, Events
 
-TRIGGHT_KEYWORD = "Any"
-HELP_MESSAGE = f'''群待办 —> 回复”群待办“以快捷设置群待办'''
+TRIGGHT_KEYWORD = "群代办"
+HELP_MESSAGE = f'''{Configurator.cm.get_cfg().others['reminder']}群待办 —> 快捷设置群待办'''
 
 #！！！机器人要有管理员权限才行，否则设置不了群待办！！！
 
@@ -26,46 +26,43 @@ async def on_message(event, actions, Manager, Events: Events, Segments, reminder
     if WHITE_LIST_ENABLED and str(event.group_id) not in WHITE_LIST:
         return None
     
-    msg = str(event.message)
-    
-    # 检查是否是群待办命令
-    if "群待办" in msg:
-        # 检查是否回复了消息
-        if isinstance(event.message[0], Segments.Reply):
-            try:
-                # 设置群待办
-                await actions.custom.set_group_todo(
-                    group_id=event.group_id,
-                    message_id=event.message[0].id
-                )
-                
-                # 发送成功提示
-                await actions.send(
-                    group_id=event.group_id,
-                    message=Manager.Message(
-                        Segments.Reply(event.message_id),
-                        Segments.Text("✅ 已将此消息设为群待办啦")
-                    )
-                )
-                return True
-                
-            except Exception as e:
-                # 发送错误提示
-                await actions.send(
-                    group_id=event.group_id,
-                    message=Manager.Message(
-                        Segments.Reply(event.message_id),
-                        Segments.Text(f"❌ 设置群待办失败：{str(e)}")
-                    )
-                )
-                return True
-        else:
-            # 提示用户需要回复消息
+    # 检查是否回复了消息
+    if isinstance(event.message[0], Segments.Reply):
+        try:
+            # 设置群待办
+            await actions.custom.set_group_todo(
+                group_id=event.group_id,
+                message_id=event.message[0].id
+            )
+            
+            # 发送成功提示
             await actions.send(
                 group_id=event.group_id,
                 message=Manager.Message(
                     Segments.Reply(event.message_id),
-                    Segments.Text("⚠️ 请回复一条消息后发送'群待办'命令")
+                    Segments.Text("✅ 已将此消息设为群待办啦")
                 )
             )
-            return True        
+            return True
+            
+        except Exception as e:
+            # 发送错误提示
+            await actions.send(
+                group_id=event.group_id,
+                message=Manager.Message(
+                    Segments.Reply(event.message_id),
+                    Segments.Text(f"❌ 设置群待办失败：{str(e)}")
+                )
+            )
+            return True
+    else:
+        # 提示用户需要回复消息
+        txt = f'''⚠️ 请回复一条消息后发送'{Configurator.cm.get_cfg().others['reminder']}群待办'命令'''
+        await actions.send(
+            group_id=event.group_id,
+            message=Manager.Message(
+                Segments.Reply(event.message_id),
+                Segments.Text(txt)
+            )
+        )
+        return True        
