@@ -2,7 +2,7 @@ import json, aiohttp, uuid
 import traceback
 from datetime import datetime
 
-from Hyper import Configurator
+from Hyper import Configurator, Listener
 Configurator.cm = Configurator.ConfigManager(Configurator.Config(file="config.json").load_from_file())
 from Hyper import Listener
 

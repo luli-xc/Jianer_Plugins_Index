@@ -8,7 +8,7 @@ from Hyper import Configurator
 Configurator.cm = Configurator.ConfigManager(Configurator.Config(file="config.json").load_from_file())
 from Hyper import Events
 from Tools.websocket_message import ws_custom_api
-
+from plugins.SumUp_MySQL.chat_database_info import get_database_stats
 # 导入 PyMySQL 库和 contextlib 用于连接管理
 import pymysql
 from contextlib import contextmanager
@@ -16,7 +16,8 @@ import json
 
 TRIGGHT_KEYWORD = "Any"
 HELP_MESSAGE = f'''{Configurator.cm.get_cfg().others["reminder"]}总结以上N条消息 —> 总结当前群聊的指定数量的消息 (0<N<=1000)
-{Configurator.cm.get_cfg().others["reminder"]}聊天数据看板 —> 展示当前(或全部)群聊的聊天数据看板'''
+{Configurator.cm.get_cfg().others["reminder"]}聊天数据看板 —> 展示当前(或全部)群聊的聊天数据看板
+{Configurator.cm.get_cfg().others["reminder"]}查看数据库状态 —> 展示当前聊天数据库的状态'''
 
 client = Context(
     api_key=Configurator.cm.get_cfg().others["gemini_key"],
@@ -468,6 +469,9 @@ async def on_message(event, actions, Manager, Events, Segments, bot_name, gen_me
 
     user_message = str(event.message).strip()
     reminder_prefix = Configurator.cm.get_cfg().others['reminder']
+    if user_message == f'{reminder_prefix}查看数据库信息' or user_message == f'{reminder_prefix}查看数据库状态':
+        await actions.send(group_id=event.group_id, message=Manager.Message(Segments.Text(get_database_stats())))
+        return True
     if user_message.startswith(reminder_prefix) and '聊天数据看板' in user_message:
         if '@all' in user_message or '@全体' in user_message:
             if not str(event.user_id) in ADMINS:
@@ -494,6 +498,7 @@ async def on_message(event, actions, Manager, Events, Segments, bot_name, gen_me
             chat_summary = generate_chat_summary(event.group_id)
             await actions.send(group_id=event.group_id, message=Manager.Message(Segments.Reply(event.message_id), Segments.Text(chat_summary)))
         return True
+    
     match = re.search(r"总结(?:以上|最近)?(\d+)(?:条|个)?消息", user_message)
     if match and user_message.startswith(Configurator.cm.get_cfg().others["reminder"]):
         selfID = await actions.send(group_id=event.group_id, message=Manager.Message(Segments.Text(f"请等待，{bot_name} 正在总结消息......φ(゜▽゜*)♪")))

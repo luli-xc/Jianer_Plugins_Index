@@ -16,7 +16,13 @@
 
 ## ⚡ 如何编写
 
-请参阅文档 [简儿 NEXT 3：Create a New Plugin](https://github.com/SRInternet-Studio/Jianer_QQ_bot/wiki/Create-a-New-Plugin)
+请参阅文档 [简儿 NEXT 3：Create a New Plugin](https://jianer.sr-studio.cn/Create-a-New-Plugin.html)
+
+### 文件名格式公约
+
+> 插件文件的文件名应该严格遵守 **PEP8 命名规范**，即插件名称中只能包含**字母、数字和下划线**，且必须以字母或下划线开头，不得包含其他特殊字符，例如空格、中划线等。插件文件名必须以 `.py` 或 `.pyw` 扩展名结尾。例如，"MorseCipher_Pro.py" 是一个有效的文件名，而 "Morse-Cipher Pro.py" 不是。
+> 
+> **注意：未遵守命名规范的插件文件名，审核人员可能会拒绝你的 Pull Request 并要求你修改文件名。** 
 
 ## ✨ 如何上传
 > [!Important]
@@ -111,7 +117,7 @@ Jianer_Plugins_Index/
 
 至此，你已成功完成了插件上传。
 
-> [!Warning]
+> [!Caution]
 > 
 > 作为一名合格的开发者，你不应该开发具有成人色情、暴力、血腥等违反 GitHub 社区规定 的插件上传至仓库，也不应改动别人的插件文件夹。**一经审查发现有以上行为，将会被删除插件，并在一段时间内撤销其推送权限。**
 
